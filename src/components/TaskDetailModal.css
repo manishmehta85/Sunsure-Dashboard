@@ -1,0 +1,155 @@
+.detail-body {
+  padding: 20px 24px;
+  max-height: calc(90vh - 120px);
+  overflow-y: auto;
+}
+
+.update-form {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.update-form-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+
+.update-form textarea {
+  background: var(--bg2);
+  margin-bottom: 10px;
+}
+
+.update-form-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.update-form-row input,
+.update-form-row select {
+  background: var(--bg2);
+  flex: 1;
+  min-width: 120px;
+}
+
+.timeline-section {}
+
+.timeline-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+
+.no-updates {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text3);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.timeline { display: flex; flex-direction: column; }
+
+.tl-item {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.tl-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-hover);
+  flex-shrink: 0;
+  border: 2px solid var(--bg2);
+  box-sizing: content-box;
+}
+
+.tl-dot.dot-latest {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.tl-line {
+  width: 2px;
+  flex: 1;
+  background: var(--border);
+  margin: 4px 0;
+  min-height: 16px;
+}
+
+.tl-content {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.tl-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.tl-date {
+  font-size: 11px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+}
+
+.tl-by {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.tl-delete {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.tl-delete:hover {
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.tl-remark {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
