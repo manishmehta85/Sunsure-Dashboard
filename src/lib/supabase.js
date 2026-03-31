@@ -2,16 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.REACT_APP_SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables!');
+  console.error('Missing Supabase env vars!');
 }
 
-// Regular client for all normal operations
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// ONE single client — used for everything
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: 'sunsure-auth',
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  }
+});
 
-// Admin client for creating users (only used in AdminPanel)
-export const supabaseAdmin = supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
-  : null;
+// Admin operations done via regular client with service key only when needed
+export const supabaseAdmin = null;
