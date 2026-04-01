@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user, setUser]       = useState(undefined); // undefined = not yet checked
   const [role, setRole]       = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,23 +22,36 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
+    // Hard timeout — never show loading screen more than 6 seconds
+    const timer = setTimeout(() => {
+      if (mounted && loading) {
+        console.log('Auth timeout — redirecting to login');
+        setUser(null);
+        setRole(null);
+        setLoading(false);
+      }
+    }, 6000);
+
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+        clearTimeout(timer);
         if (session?.user) {
           setUser(session.user);
           const r = await fetchRole(session.user.id);
-          if (mounted) { setRole(r); setLoading(false); }
+          if (mounted) setRole(r);
         } else {
           setUser(null);
           setRole(null);
-          if (mounted) setLoading(false);
         }
+        if (mounted) setLoading(false);
       }
     );
 
     return () => {
       mounted = false;
+      clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);
@@ -53,6 +66,9 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setRole(null);
+    setLoading(false);
   };
 
   const can = {
