@@ -1,59 +1,14 @@
-.admin-panel { max-width: 900px; }
-
-.role-legend {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.role-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-}
-
-.role-card .badge { margin-bottom: 8px; }
-
-.role-card p {
-  font-size: 12px;
-  color: var(--text2);
-  line-height: 1.5;
-}
-
-.users-table-wrap {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: auto;
-}
-
-.users-table { width: 100%; border-collapse: collapse; }
-
-.users-table th {
-  text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text3);
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.users-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.users-table tr:last-child td { border-bottom: none; }
-.users-table tr:hover td { background: var(--bg3); }
-
-.user-name { font-size: 13px; font-weight: 500; color: var(--text); }
-.user-email { font-size: 12px; color: var(--text2); margin-top: 2px; }
-
-@media (max-width: 700px) {
-  .role-legend { grid-template-columns: 1fr; }
-}
+.admin-panel { max-width:900px; }
+.role-legend { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+.role-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+.role-card .badge { margin-bottom:8px; }
+.role-card p { font-size:12px; color:var(--text2); line-height:1.5; }
+.users-table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:auto; }
+.users-table { width:100%; border-collapse:collapse; }
+.users-table th { text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text3); padding:12px 18px; border-bottom:1px solid var(--border); background:#FAFAF8; }
+.users-table td { padding:14px 18px; border-bottom:1px solid var(--border2); vertical-align:middle; }
+.users-table tr:last-child td { border-bottom:none; }
+.users-table tr:hover td { background:var(--bg2); }
+.user-name  { font-size:13px; font-weight:600; color:var(--text); }
+.user-email { font-size:12px; color:var(--text2); margin-top:2px; }
+@media (max-width:700px) { .role-legend { grid-template-columns:1fr; } }
