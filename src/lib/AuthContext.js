@@ -1,74 +1,58 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
 const AuthContext = createContext(null);
+const SESSION_KEY = 'sunsure_user';
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(undefined); // undefined = not yet checked
+  const [user, setUser]       = useState(null);
   const [role, setRole]       = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId) => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
-      return data?.role || 'viewer';
-    } catch { return 'viewer'; }
-  };
-
   useEffect(() => {
-    let mounted = true;
-
-    // Hard timeout — never show loading screen more than 6 seconds
-    const timer = setTimeout(() => {
-      if (mounted && loading) {
-        console.log('Auth timeout — redirecting to login');
-        setUser(null);
-        setRole(null);
-        setLoading(false);
-      }
-    }, 6000);
-
-    // Auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        clearTimeout(timer);
-        if (session?.user) {
-          setUser(session.user);
-          const r = await fetchRole(session.user.id);
-          if (mounted) setRole(r);
+    // Instantly load from localStorage — no network, no spinning
+    try {
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.expires > Date.now()) {
+          setUser({ email: parsed.email });
+          setRole(parsed.role);
         } else {
-          setUser(null);
-          setRole(null);
+          localStorage.removeItem(SESSION_KEY);
         }
-        if (mounted) setLoading(false);
       }
-    );
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-      subscription.unsubscribe();
-    };
+    } catch {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    setLoading(false);
   }, []);
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(), password
-    });
-    if (error) throw error;
-    return data;
+    // Look up user in Supabase user_roles table
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('user_id, email, role, password')
+      .eq('email', email.trim().toLowerCase())
+      .single();
+
+    if (error || !data) throw new Error('Invalid email or password.');
+    if (data.password !== password) throw new Error('Invalid email or password.');
+
+    const session = {
+      email: data.email,
+      role: data.role,
+      expires: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setUser({ email: data.email });
+    setRole(data.role);
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = () => {
+    localStorage.removeItem(SESSION_KEY);
     setUser(null);
     setRole(null);
-    setLoading(false);
   };
 
   const can = {
