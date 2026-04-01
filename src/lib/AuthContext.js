@@ -10,12 +10,11 @@ export function AuthProvider({ children }) {
 
   const fetchRole = async (userId) => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .single();
-      if (error) return 'viewer';
       return data?.role || 'viewer';
     } catch { return 'viewer'; }
   };
@@ -23,37 +22,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
 
-    // Listen to auth state changes FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         if (session?.user) {
           setUser(session.user);
           const r = await fetchRole(session.user.id);
-          if (mounted) setRole(r);
+          if (mounted) { setRole(r); setLoading(false); }
         } else {
           setUser(null);
           setRole(null);
+          if (mounted) setLoading(false);
         }
-        if (mounted) setLoading(false);
       }
     );
-
-    // Then get current session
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (!mounted) return;
-      if (error) {
-        console.error('Session error:', error.message);
-        setLoading(false);
-        return;
-      }
-      if (session?.user) {
-        setUser(session.user);
-        const r = await fetchRole(session.user.id);
-        if (mounted) setRole(r);
-      }
-      if (mounted) setLoading(false);
-    });
 
     return () => {
       mounted = false;
@@ -71,8 +53,6 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setRole(null);
   };
 
   const can = {
