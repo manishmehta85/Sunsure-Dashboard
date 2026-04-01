@@ -10,11 +10,11 @@ const ROLE_BADGE = { admin:'badge-orange', editor:'badge-blue', viewer:'badge-gr
 export default function AdminPanel() {
   const { can } = useAuth();
   const showToast = useContext(ToastContext);
-  const [users, setUsers]       = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [users, setUsers]         = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [form, setForm]         = useState({ email:'', name:'', password:'', role:'viewer' });
+  const [inviting, setInviting]   = useState(false);
+  const [form, setForm]           = useState({ email:'', name:'', password:'', role:'viewer' });
   const [formError, setFormError] = useState('');
 
   const load = async () => {
@@ -29,12 +29,16 @@ export default function AdminPanel() {
   useEffect(() => { load(); }, []);
 
   const updateRole = async (id, newRole) => {
-    const { error } = await supabase
-      .from('user_roles')
-      .update({ role: newRole })
-      .eq('id', id);
+    const { error } = await supabase.from('user_roles').update({ role: newRole }).eq('id', id);
     if (error) { showToast('Failed to update role', 'error'); return; }
     showToast('Role updated!');
+    load();
+  };
+
+  const deleteUser = async (id, email) => {
+    if (!window.confirm(`Remove ${email}?`)) return;
+    await supabase.from('user_roles').delete().eq('id', id);
+    showToast('User removed');
     load();
   };
 
@@ -49,7 +53,6 @@ export default function AdminPanel() {
         full_name: form.name || null,
         role:      form.role,
         password:  form.password,
-        user_id:   crypto.randomUUID(),
       });
       if (error) throw error;
       showToast(`✓ ${form.email} added as ${form.role}`);
@@ -96,17 +99,16 @@ export default function AdminPanel() {
 
       {loading ? (
         <div style={{ textAlign:'center', padding:60 }}><div className="spinner"/></div>
-      ) : users.length === 0 ? (
-        <div className="empty-state"><p>No users yet. Click "+ Add User" to get started.</p></div>
       ) : (
         <div className="users-table-wrap">
           <table className="users-table">
             <thead>
               <tr>
                 <th>Name / Email</th>
-                <th>Current Role</th>
+                <th>Role</th>
                 <th>Joined</th>
                 <th>Change Role</th>
+                <th>Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -117,19 +119,22 @@ export default function AdminPanel() {
                     <div className="user-email">{u.email}</div>
                   </td>
                   <td><span className={`badge ${ROLE_BADGE[u.role]}`}>{u.role}</span></td>
-                  <td style={{ fontSize:12, color:'var(--text2)', fontFamily:'JetBrains Mono' }}>
+                  <td style={{ fontSize:12, color:'var(--text2)', fontFamily:'JetBrains Mono,monospace' }}>
                     {u.created_at ? format(parseISO(u.created_at), 'dd MMM yyyy') : '—'}
                   </td>
                   <td>
-                    <select
-                      value={u.role}
-                      onChange={e => updateRole(u.id, e.target.value)}
-                      style={{ width:'auto', minWidth:100 }}
-                    >
+                    <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
+                      style={{ width:'auto', minWidth:100 }}>
                       <option value="admin">admin</option>
                       <option value="editor">editor</option>
                       <option value="viewer">viewer</option>
                     </select>
+                  </td>
+                  <td>
+                    <button className="btn btn-danger" style={{padding:'4px 10px',fontSize:12}}
+                      onClick={() => deleteUser(u.id, u.email)}>
+                      Remove
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -153,15 +158,16 @@ export default function AdminPanel() {
               )}
               <div className="form-group">
                 <label>Full Name</label>
-                <input value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Aastha Bajaj"/>
+                <input value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Gaurav Kumar"/>
               </div>
               <div className="form-group">
                 <label>Email Address *</label>
-                <input type="email" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} placeholder="aastha@sunsure.com"/>
+                <input type="email" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} placeholder="gaurav@sunsure.in"/>
               </div>
               <div className="form-group">
                 <label>Password *</label>
-                <input type="password" value={form.password} onChange={e => setForm(f=>({...f,password:e.target.value}))} placeholder="min 6 characters"/>
+                <input type="password" value={form.password} onChange={e => setForm(f=>({...f,password:e.target.value}))} placeholder="set a password for this user"/>
+                <p style={{fontSize:11,color:'var(--text3)',marginTop:4}}>Share this password with the user after adding them.</p>
               </div>
               <div className="form-group">
                 <label>Role</label>

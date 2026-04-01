@@ -18,9 +18,10 @@ export default function Dashboard() {
   const [overdue, setOverdue]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const navigate    = useNavigate();
-  const showToast   = useContext(ToastContext);
-  const { can }     = useAuth();
+  const [editProject, setEditProject] = useState(null);
+  const navigate  = useNavigate();
+  const showToast = useContext(ToastContext);
+  const { can }   = useAuth();
 
   const load = async () => {
     const { data: projs } = await supabase.from('projects').select('*').order('name');
@@ -39,18 +40,30 @@ export default function Dashboard() {
       }
     });
     od.sort((a,b) => a.target_date > b.target_date ? 1 : -1);
-    setStats(s); setProjects(projs||[]); setOverdue(od.slice(0,8)); setLoading(false);
+    setStats(s);
+    setProjects(projs||[]);
+    setOverdue(od.slice(0,8));
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
+  const deleteProject = async (e, id, name) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete project "${name}" and all its tasks?`)) return;
+    await supabase.from('projects').delete().eq('id', id);
+    showToast('Project deleted');
+    load();
+  };
+
   const projMap = {};
   projects.forEach(p => { projMap[p.id] = p; });
+
   const total_tasks   = Object.values(stats).reduce((a,b)=>a+b.total,0);
   const total_done    = Object.values(stats).reduce((a,b)=>a+b.completed,0);
   const total_overdue = Object.values(stats).reduce((a,b)=>a+b.overdue,0);
 
-  const STATUS_BADGE = {'Completed':'badge-green','In Progress':'badge-blue','Not Started':'badge-gray','On Hold':'badge-amber'};
+  const STATUS_BADGE   = {'Completed':'badge-green','In Progress':'badge-blue','Not Started':'badge-gray','On Hold':'badge-amber'};
   const PRIORITY_BADGE = {High:'badge-red',Medium:'badge-amber',Low:'badge-gray'};
 
   return (
@@ -58,9 +71,11 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-sub">22 solar projects · 6 states · {new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>
+          <p className="page-sub">{projects.length} solar projects · 6 states · {new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>
         </div>
-        {can.admin && <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ New Project</button>}
+        {can.admin && (
+          <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ New Project</button>
+        )}
       </div>
 
       <div className="stat-grid">
@@ -102,18 +117,29 @@ export default function Dashboard() {
           {projects.map(p => {
             const s = stats[p.id]||{total:0,completed:0,inprogress:0,overdue:0};
             const pct = s.total ? Math.round(s.completed/s.total*100) : 0;
+            const color = STATE_COLORS[p.state]||'var(--orange)';
             return (
               <div key={p.id} className="project-card" onClick={()=>navigate(`/project/${p.id}`)}>
                 <div className="project-card-header">
-                  <div className="project-card-dot" style={{background: STATE_COLORS[p.state]||'#B0A398'}}/>
-                  <div>
+                  <div className="project-card-dot" style={{background: color}}/>
+                  <div style={{flex:1,minWidth:0}}>
                     <div className="project-card-name">{p.name}</div>
                     <div className="project-card-meta">{[p.capacity,p.state].filter(Boolean).join(' · ')}</div>
                   </div>
+                  {can.admin && (
+                    <button
+                      className="action-btn danger"
+                      title="Delete project"
+                      onClick={e => deleteProject(e, p.id, p.name)}
+                      style={{fontSize:12,padding:'3px 7px',marginLeft:6,flexShrink:0}}
+                    >
+                      🗑
+                    </button>
+                  )}
                 </div>
                 <div className="progress-bar-wrap">
                   <div className="progress-bar">
-                    <div className="progress-fill" style={{width:pct+'%', background: STATE_COLORS[p.state]||'var(--orange)'}}/>
+                    <div className="progress-fill" style={{width:pct+'%', background: color}}/>
                   </div>
                   <span className="progress-pct">{pct}%</span>
                 </div>
@@ -131,7 +157,7 @@ export default function Dashboard() {
 
       {overdue.length > 0 && (
         <>
-          <div className="section-header">
+          <div className="section-header" style={{marginTop:28}}>
             <div className="section-title">Overdue tasks — immediate attention needed</div>
             <div className="section-link" onClick={()=>navigate('/tasks')}>View all {total_overdue} →</div>
           </div>
@@ -143,9 +169,7 @@ export default function Dashboard() {
               <tbody>
                 {overdue.map(t => (
                   <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/project/${t.project_id}`)}>
-                    <td>
-                      <div className="od-title">{t.title.length>60?t.title.slice(0,60)+'…':t.title}</div>
-                    </td>
+                    <td><div className="od-title">{t.title.length>55?t.title.slice(0,55)+'…':t.title}</div></td>
                     <td><div className="od-project">{projMap[t.project_id]?.name||'—'}</div></td>
                     <td><span className="owner-chip">{t.responsible||'—'}</span></td>
                     <td><span className="od-date">{t.target_date ? format(parseISO(t.target_date),'dd MMM yy') : '—'}</span></td>
@@ -160,7 +184,10 @@ export default function Dashboard() {
       )}
 
       {showModal && can.admin && (
-        <ProjectModal onClose={()=>setShowModal(false)} onSave={()=>{load();showToast('Project created!');setShowModal(false);}}/>
+        <ProjectModal
+          onClose={()=>setShowModal(false)}
+          onSave={()=>{ load(); showToast('Project created!'); setShowModal(false); }}
+        />
       )}
     </div>
   );
