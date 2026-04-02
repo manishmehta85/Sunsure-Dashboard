@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { ToastContext } from '../App';
 import { useAuth } from '../lib/AuthContext';
 import ProjectModal from '../components/ProjectModal';
+import { exportToExcel } from '../lib/exportExcel';
 import { format, parseISO } from 'date-fns';
 import './Dashboard.css';
 
@@ -13,12 +14,12 @@ const STATE_COLORS = {
 };
 
 export default function Dashboard() {
-  const [projects, setProjects]   = useState([]);
-  const [stats, setStats]         = useState({});
-  const [overdue, setOverdue]     = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editProject, setEditProject] = useState(null);
+  const [projects, setProjects]     = useState([]);
+  const [stats, setStats]           = useState({});
+  const [overdue, setOverdue]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [showModal, setShowModal]   = useState(false);
+  const [exporting, setExporting]   = useState(false);
   const navigate  = useNavigate();
   const showToast = useContext(ToastContext);
   const { can }   = useAuth();
@@ -39,14 +40,23 @@ export default function Dashboard() {
         od.push(t);
       }
     });
-    od.sort((a,b) => a.target_date > b.target_date ? 1 : -1);
-    setStats(s);
-    setProjects(projs||[]);
-    setOverdue(od.slice(0,8));
-    setLoading(false);
+    od.sort((a,b) => a.target_date > b.target_date ? 1:-1);
+    setStats(s); setProjects(projs||[]); setOverdue(od.slice(0,8)); setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const fileName = await exportToExcel();
+      showToast(`✓ Downloaded ${fileName}`);
+    } catch (err) {
+      showToast('Export failed: ' + err.message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const deleteProject = async (e, id, name) => {
     e.stopPropagation();
@@ -58,11 +68,9 @@ export default function Dashboard() {
 
   const projMap = {};
   projects.forEach(p => { projMap[p.id] = p; });
-
   const total_tasks   = Object.values(stats).reduce((a,b)=>a+b.total,0);
   const total_done    = Object.values(stats).reduce((a,b)=>a+b.completed,0);
   const total_overdue = Object.values(stats).reduce((a,b)=>a+b.overdue,0);
-
   const STATUS_BADGE   = {'Completed':'badge-green','In Progress':'badge-blue','Not Started':'badge-gray','On Hold':'badge-amber'};
   const PRIORITY_BADGE = {High:'badge-red',Medium:'badge-amber',Low:'badge-gray'};
 
@@ -73,9 +81,27 @@ export default function Dashboard() {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-sub">{projects.length} solar projects · 6 states · {new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>
         </div>
-        {can.admin && (
-          <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ New Project</button>
-        )}
+        <div style={{display:'flex',gap:10}}>
+          <button
+            className="btn btn-ghost"
+            onClick={handleExport}
+            disabled={exporting}
+            title="Download Excel backup"
+          >
+            {exporting
+              ? <><span className="spinner" style={{width:13,height:13,borderWidth:2}}/> Exporting…</>
+              : <>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M7 1v8M4 6l3 3 3-3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Export Excel
+                </>
+            }
+          </button>
+          {can.admin && (
+            <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ New Project</button>
+          )}
+        </div>
       </div>
 
       <div className="stat-grid">
@@ -121,25 +147,22 @@ export default function Dashboard() {
             return (
               <div key={p.id} className="project-card" onClick={()=>navigate(`/project/${p.id}`)}>
                 <div className="project-card-header">
-                  <div className="project-card-dot" style={{background: color}}/>
+                  <div className="project-card-dot" style={{background:color}}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div className="project-card-name">{p.name}</div>
                     <div className="project-card-meta">{[p.capacity,p.state].filter(Boolean).join(' · ')}</div>
                   </div>
                   {can.admin && (
-                    <button
-                      className="action-btn danger"
-                      title="Delete project"
-                      onClick={e => deleteProject(e, p.id, p.name)}
-                      style={{fontSize:12,padding:'3px 7px',marginLeft:6,flexShrink:0}}
-                    >
+                    <button className="action-btn danger" title="Delete project"
+                      onClick={e=>deleteProject(e,p.id,p.name)}
+                      style={{fontSize:12,padding:'3px 7px',marginLeft:6,flexShrink:0}}>
                       🗑
                     </button>
                   )}
                 </div>
                 <div className="progress-bar-wrap">
                   <div className="progress-bar">
-                    <div className="progress-fill" style={{width:pct+'%', background: color}}/>
+                    <div className="progress-fill" style={{width:pct+'%',background:color}}/>
                   </div>
                   <span className="progress-pct">{pct}%</span>
                 </div>
@@ -172,7 +195,7 @@ export default function Dashboard() {
                     <td><div className="od-title">{t.title.length>55?t.title.slice(0,55)+'…':t.title}</div></td>
                     <td><div className="od-project">{projMap[t.project_id]?.name||'—'}</div></td>
                     <td><span className="owner-chip">{t.responsible||'—'}</span></td>
-                    <td><span className="od-date">{t.target_date ? format(parseISO(t.target_date),'dd MMM yy') : '—'}</span></td>
+                    <td><span className="od-date">{t.target_date?format(parseISO(t.target_date),'dd MMM yy'):'—'}</span></td>
                     <td><span className={`badge ${STATUS_BADGE[t.status]||'badge-gray'}`}>{t.status}</span></td>
                     <td><span className={`badge ${PRIORITY_BADGE[t.priority]||'badge-gray'}`}>{t.priority}</span></td>
                   </tr>
@@ -184,10 +207,8 @@ export default function Dashboard() {
       )}
 
       {showModal && can.admin && (
-        <ProjectModal
-          onClose={()=>setShowModal(false)}
-          onSave={()=>{ load(); showToast('Project created!'); setShowModal(false); }}
-        />
+        <ProjectModal onClose={()=>setShowModal(false)}
+          onSave={()=>{ load(); showToast('Project created!'); setShowModal(false); }}/>
       )}
     </div>
   );
