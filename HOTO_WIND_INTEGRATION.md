@@ -56,3 +56,22 @@ Create a new project → choose **Wind layout** → it opens an empty tracker; u
   policies keyed to `user_roles`.
 - Data came from `HOTO_Tracker_Bijapur (v3)`, Sheet1: the 16 sheet milestones plus the
   four earlier gates (seeded Done where 11E is already reached, else Pending — editable).
+
+## New in this build
+- **Add locations in-app** — Wind dashboard has a "+ Add location" button (header and
+  empty state) with a quick form (WTG ID, developer, priority, land owner). New sites
+  start with all 20 milestones Pending; open one to set statuses, deadlines, comments.
+- **Delete a location** — from a site's detail drawer (editors/admins only).
+- **Rename a wind project** — the ✏️ Rename control in the wind project header updates
+  `projects.name` and cascades `hoto_locations.project` so the data stays attached.
+- **Better empty state** — a genuinely empty wind project now shows an "Add location /
+  Import" call-to-action instead of the generic "no match" message.
+
+## Latest additions
+- **Turbine Rating** — the Add-location form now has a *Turbine rating* field (e.g.
+  "3.0 MW"). It shows on the location card (`Developer · rating · project`) and in the
+  site drawer, and is included in CSV export/import (a "Turbine Rating" column).
+- **Deadline-miss = red, automatically** — any milestone whose deadline has passed while
+  still not Done now turns solid red on its own: red cell on the All-Locations board, red
+  segment on the dashboard card mini-strips, and a red node + red status pill in the site
+  drawer. (Milestones without a deadline are unaffected.)

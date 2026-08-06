@@ -14,6 +14,72 @@ const STATUS_BADGE = {
 };
 const PRIORITY_BADGE = { High: 'badge-red', Medium: 'badge-amber', Low: 'badge-gray' };
 
+// ---- Wind project view: rename header + embedded HOTO tracker ----
+function WindProject({ project, canEdit, onRenamed }) {
+  const navigate = useNavigate();
+  const showToast = useContext(ToastContext);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(project.name);
+  const [saving, setSaving] = useState(false);
+
+  const cfg =
+    `&supabaseUrl=${encodeURIComponent(process.env.REACT_APP_SUPABASE_URL || '')}` +
+    `&supabaseKey=${encodeURIComponent(process.env.REACT_APP_SUPABASE_ANON_KEY || '')}`;
+  const src = `/hoto-dashboard.html?embed=1&project=${encodeURIComponent(project.name)}`
+    + (canEdit ? '' : '&readonly=1') + cfg;
+
+  const rename = async () => {
+    const nn = name.trim();
+    if (!nn || nn === project.name) { setEditing(false); setName(project.name); return; }
+    setSaving(true);
+    // rename the project…
+    const { error: e1 } = await supabase.from('projects').update({ name: nn }).eq('id', project.id);
+    // …and cascade the wind data, which is keyed by project name
+    if (!e1) await supabase.from('hoto_locations').update({ project: nn }).eq('project', project.name);
+    setSaving(false);
+    setEditing(false);
+    if (e1) { showToast(e1.message, 'error'); setName(project.name); return; }
+    showToast('Project renamed');
+    onRenamed();
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px',
+        borderBottom: '1px solid var(--border, #ECE4DA)', background: '#fff', flex: '0 0 auto',
+      }}>
+        <button className="back-btn" onClick={() => navigate('/')} style={{ margin: 0 }}>← Back</button>
+        {editing ? (
+          <>
+            <input
+              value={name}
+              autoFocus
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') rename(); if (e.key === 'Escape') { setEditing(false); setName(project.name); } }}
+              style={{ fontSize: 18, fontWeight: 700, padding: '6px 10px', border: '1px solid var(--accent, #EA580C)', borderRadius: 8, minWidth: 260 }}
+            />
+            <button className="btn btn-primary" onClick={rename} disabled={saving}>{saving ? '…' : 'Save'}</button>
+            <button className="btn btn-ghost" onClick={() => { setEditing(false); setName(project.name); }}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{project.name}</h1>
+            <span style={{ fontSize: 12, color: 'var(--text2, #7A7268)' }}>
+              {[project.capacity, project.state].filter(Boolean).join(' · ')}
+            </span>
+            {canEdit && (
+              <button className="btn btn-ghost" title="Rename project" onClick={() => setEditing(true)}
+                style={{ marginLeft: 4, padding: '4px 8px' }}>✏️ Rename</button>
+            )}
+          </>
+        )}
+      </div>
+      <iframe title={project.name} src={src} style={{ flex: 1, width: '100%', border: 0 }} />
+    </div>
+  );
+}
+
 export default function ProjectPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,7 +95,6 @@ export default function ProjectPage() {
   const load = async () => {
     const { data: proj } = await supabase.from('projects').select('*').eq('id', id).single();
     setProject(proj);
-    // Wind projects don't use the tasks table — skip that query
     if (proj && proj.layout === 'wind') { setLoading(false); return; }
     const { data: tks } = await supabase.from('tasks').select('*').eq('project_id', id).order('created_at', { ascending: false });
     setTasks(tks || []);
@@ -41,23 +106,12 @@ export default function ProjectPage() {
   if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><div className="spinner" /></div>;
   if (!project) return <div style={{ padding: 40, color: 'var(--text2)' }}>Project not found.</div>;
 
-  // ---- WIND LAYOUT: render the HOTO milestone tracker for this project ----
+  // ---- WIND LAYOUT ----
   if (project.layout === 'wind') {
-    const cfg =
-      `&supabaseUrl=${encodeURIComponent(process.env.REACT_APP_SUPABASE_URL || '')}` +
-      `&supabaseKey=${encodeURIComponent(process.env.REACT_APP_SUPABASE_ANON_KEY || '')}`;
-    const src = `/hoto-dashboard.html?embed=1&project=${encodeURIComponent(project.name)}`
-      + (can.edit ? '' : '&readonly=1') + cfg;
-    return (
-      <iframe
-        title={project.name}
-        src={src}
-        style={{ display: 'block', width: '100%', height: '100vh', border: 0 }}
-      />
-    );
+    return <WindProject project={project} canEdit={can.edit} onRenamed={load} />;
   }
 
-  // ---- NORMAL LAYOUT: existing task view (unchanged) ----
+  // ---- NORMAL LAYOUT (unchanged) ----
   const deleteTask = async (taskId) => {
     if (!window.confirm('Delete this task?')) return;
     await supabase.from('tasks').delete().eq('id', taskId);

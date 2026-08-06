@@ -213,6 +213,32 @@ body.embed .embed-plist .pitem{padding:6px 11px;border:1px solid var(--line);bor
 body.embed .newbtn{margin:0;padding:9px 13px}
 body.ro .cadd,body.ro .mrow,body.ro summary .star,body.ro .cnote .del,body.ro .newbtn{display:none!important}
 body.ro summary .stpill{pointer-events:none}
+
+.empty .emk{font-size:40px;margin-bottom:6px}
+.empty .emcta{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.lmodal-scrim{position:fixed;inset:0;background:rgba(40,30,20,.42);opacity:0;pointer-events:none;transition:.2s;z-index:80}
+.lmodal-scrim.on{opacity:1;pointer-events:auto}
+.lmodal{position:fixed;z-index:81;left:50%;top:50%;transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:.18s;width:430px;max-width:92vw;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(40,30,20,.28);overflow:hidden}
+.lmodal.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.lm-head{padding:16px 20px;font-size:16px;font-weight:800;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.lm-head .x{font-size:18px;color:var(--muted);cursor:pointer;line-height:1}
+.lm-body{padding:14px 20px 4px;display:flex;flex-direction:column}
+.lm-body label{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 5px}
+.lm-body input{border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13.5px}
+.lm-body input:focus{outline:none;border-color:var(--or);box-shadow:0 0 0 3px rgba(232,89,12,.12)}
+.lm-row{display:flex;gap:12px}.lm-row>div{flex:1;display:flex;flex-direction:column}
+.lm-err{color:var(--red);font-size:12px;min-height:16px;margin:8px 0 0}
+.lm-foot{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--line);background:#FBF7F1;margin-top:10px}
+.drm{background:rgba(255,255,255,.16);color:#fff;font-size:11px;font-weight:600;padding:6px 11px;border-radius:8px;margin-left:auto;cursor:pointer}
+.drm:hover{background:rgba(255,255,255,.3)}
+body.ro #hdr_add{display:none}
+
+.chip.over{background:var(--red)!important;opacity:1!important}
+.chip.over .al{display:none}
+.mini i.over{background:var(--red)!important}
+.mini i.over::after{display:none}
+.stn.over .node .dot{background:var(--red);border-color:var(--red)}
+.stn.over summary .stpill{background:var(--red-s);color:var(--red)}
 </style></head>
 <body>
 <div class="app" id="app">
@@ -274,6 +300,20 @@ body.ro summary .stpill{pointer-events:none}
     <div class="dhead"><button class="dclose" id="dclose">×</button><h2 id="d-wtg"></h2><div class="dev" id="d-dev"></div><div class="dmeta" id="d-meta"></div></div>
     <div class="dbody" id="d-body"></div>
   </aside>
+</div>
+<div class="lmodal-scrim" id="lscrim"></div>
+<div class="lmodal" id="lmodal">
+  <div class="lm-head"><span>Add location</span><span class="x" id="la_x">✕</span></div>
+  <div class="lm-body">
+    <label>WTG ID *</label><input id="la_wtg" placeholder="e.g. K1SS-01" autocomplete="off">
+    <label>Developer</label><input id="la_dev" placeholder="e.g. Powercon" autocomplete="off">
+    <div class="lm-row">
+      <div><label>Turbine rating</label><input id="la_rating" placeholder="e.g. 3.0 MW"></div><div><label>Priority</label><input id="la_pri" type="number" min="1" placeholder="e.g. 1"></div>
+      <div><label>Land owner</label><input id="la_owner" placeholder="optional"></div>
+    </div>
+    <div class="lm-err" id="la_err"></div>
+  </div>
+  <div class="lm-foot"><button class="btn o" id="la_cancel">Cancel</button><button class="btn p" id="la_save">Add location</button></div>
 </div>
 <div id="tt"></div>
 
@@ -377,17 +417,37 @@ function renderKPIs(){
 }
 function renderCards(){
   const data=filtered();
+  if(!inProj().length){$('#cards').innerHTML=noLocHtml();setTimeout(wireEmptyCTA,0);return;}
   if(!data.length){$('#cards').innerHTML='<div class="empty"><div class="big">No locations match</div>Try clearing the search or filters.</div>';return;}
   $('#cards').innerHTML=data.map(r=>{
     const pc=Math.round(pctOf(r)*100),sc=statColor(r),ov=rOver(r),done=rDone(r),prog=rProg(r),tot=rTotal(r);
     return `<div class="pc" data-i="${r._i}">
       <div class="h"><span class="cdot" style="background:${COL[sc]}"></span><span class="nm">${r.wtg}</span>${r.pri?`<span class="pr ${r.pri<=3?'hot':''}">P${r.pri}</span>`:''}</div>
-      <div class="meta">${r.dev} · ${r.project}</div>
+      <div class="meta">${r.dev}${r.rating?(' · '+esc(r.rating)):''} · ${r.project}</div>
       <div class="barrow"><div class="bar"><span style="width:${pc}%;--bc:${COL[sc]}"></span></div><span class="pct">${pc}%</span></div>
       <div class="pills"><span class="tp">${tot} milestones</span><span class="tp g">${done} done</span>${ov?`<span class="tp r">${ov} overdue</span>`:''}${prog?`<span class="tp b">${prog} active</span>`:''}</div>
     </div>`;}).join('');
   $$('#cards .pc').forEach(el=>el.onclick=()=>openDrawer(+el.dataset.i));
 }
+function newIndex(){return rows.reduce((m,r)=>Math.max(m,r._i),-1)+1;}
+function blankCells(){return FULL.map(()=>({status:'Pending',due:'',critical:false,comments:[]}));}
+function openAddLoc(){if(RO)return;['la_wtg','la_dev','la_pri','la_owner','la_rating'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const er=document.getElementById('la_err');if(er)er.textContent='';document.getElementById('lmodal').classList.add('on');document.getElementById('lscrim').classList.add('on');setTimeout(()=>{const w=document.getElementById('la_wtg');if(w)w.focus();},30);}
+function closeAddLoc(){document.getElementById('lmodal').classList.remove('on');document.getElementById('lscrim').classList.remove('on');}
+function cacheLocal(){try{localStorage.setItem(LSKEY,JSON.stringify({projects,rows}));}catch(e){}}
+function rerender(){renderSidebar();renderHeadbar();setView(state.view);}
+function addLocation(){const wtg=(document.getElementById('la_wtg').value||'').trim();const dev=(document.getElementById('la_dev').value||'').trim()||'—';const priV=(document.getElementById('la_pri').value||'').trim();const owner=(document.getElementById('la_owner').value||'').trim();const rating=(document.getElementById('la_rating')?document.getElementById('la_rating').value:'').trim();const er=document.getElementById('la_err');
+  if(!wtg){er.textContent='WTG ID is required.';return;}
+  const proj=state.project;
+  if(rows.some(r=>r.project===proj&&(r.wtg||'').toLowerCase()===wtg.toLowerCase())){er.textContent='A location with that WTG ID already exists.';return;}
+  const r={project:proj,wtg,dev,pri:(priV&&!isNaN(+priV))?+priV:null,owner_land:owner,rating,targetHOTO:'',actualHOTO:'',blocker:'',support:'',remark:'',_i:newIndex(),cells:blankCells()};
+  rows.push(r);cacheLocal();if(sb)saveLoc(r);closeAddLoc();rerender();openDrawer(r._i);}
+function deleteLoc(i){const r=rows.find(x=>x._i===i);if(!r||RO)return;if(!confirm('Delete location '+r.wtg+'? This removes all its milestone data.'))return;
+  rows=rows.filter(x=>x._i!==i).map((x,k)=>({...x,_i:k}));cacheLocal();
+  if(sb){try{sb.from('hoto_locations').delete().eq('project',r.project).eq('wtg',r.wtg);}catch(e){console.error(e);}}
+  closeD();rerender();}
+function noLocHtml(){return '<div class="empty"><div class="emk">\ud83d\uddfa\ufe0f</div><div class="big">No locations yet in '+esc(state.project||'this project')+'</div>Add your first WTG below, or import a list.<div class="emcta">'+(RO?'':'<button class="btn p" id="em_add">+ Add location</button>')+'<button class="btn o" id="em_imp">Import CSV / JSON</button></div></div>';}
+function wireEmptyCTA(){const a=document.getElementById('em_add');if(a)a.onclick=openAddLoc;const im=document.getElementById('em_imp');if(im)im.onclick=()=>{const f=document.getElementById('imp');if(f)f.click();};}
+function addHeaderBtn(){if(RO)return;const acts=document.querySelector('.acts');if(!acts||document.getElementById('hdr_add'))return;const b=document.createElement('button');b.className='btn p';b.id='hdr_add';b.textContent='+ Add location';b.onclick=openAddLoc;acts.insertBefore(b,acts.firstChild);}
 function renderBoard(){
   const head=`<div class="grow ghead"><div class="cell">Location</div>`+ABBR.map((a,i)=>`<div class="cell ${i===MSN-1?'hoto':''}">${a}</div>`).join('')+`</div>`;
   const data=filtered();
@@ -422,7 +482,7 @@ function cur(){return rows.find(r=>r._i===state.open);}
 function renderDrawer(){const r=cur();if(!r)return;
   $('#d-wtg').textContent=r.wtg;$('#d-dev').textContent=r.dev+' · '+r.project;
   const pc=Math.round(pctOf(r)*100);
-  $('#d-meta').innerHTML=[['% Complete',pc+'%'],['Overdue',rOver(r)],['Critical',rCrit(r)],['Target HOTO',r.targetHOTO||'—']].map(m=>`<div>${m[0]}<b>${m[1]}</b></div>`).join('');
+  $('#d-meta').innerHTML=[['% Complete',pc+'%'],['Turbine',r.rating||'—'],['Overdue',rOver(r)],['Critical',rCrit(r)]].map(m=>`<div>${m[0]}<b>${m[1]}</b></div>`).join('');if(!RO){$('#d-meta').insertAdjacentHTML('beforeend','<button class="drm" id="d_del">Delete location</button>');const db=document.getElementById('d_del');if(db)db.onclick=()=>deleteLoc(state.open);}
   $('#d-body').innerHTML=r.cells.map((c,i)=>{const over=isOver(c),cls=over?'over':CLS[c.status];
     const due=c.due?(over?`<span class="sob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.4v.3"/></svg>${daysB(todayStr(),c.due)}d over</span>`:`<span class="sdue">due ${c.due}</span>`):'';
     const notes=c.comments.length?c.comments.map((n,k)=>`<div class="cnote"><span class="ts">${fmtTs(n.ts)}</span>${esc(n.text)}<button class="del" data-k="${k}">×</button></div>`).join(''):'<div class="cempty">No updates logged yet.</div>';
@@ -461,16 +521,16 @@ function mt(e){let x=e.clientX+12,y=e.clientY+14,w=tt.offsetWidth,h=tt.offsetHei
 function fmtTs(iso){return new Date(iso).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 /* export/import */
-function toCSV(){const head=["Project","WTG ID","Developer","Priority","Land Owner (POR)",...FULL,"Target HOTO Date","Actual HOTO Date","Key Blocker","Support Owner","Remark"];
+function toCSV(){const head=["Project","WTG ID","Developer","Priority","Land Owner (POR)","Turbine Rating",...FULL,"Target HOTO Date","Actual HOTO Date","Key Blocker","Support Owner","Remark"];
   const q=v=>{v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  const L=[head.join(',')];rows.forEach(r=>L.push([r.project,r.wtg,r.dev,r.pri==null?'':r.pri,r.owner_land,...r.cells.map(c=>c.status),r.targetHOTO,r.actualHOTO,r.blocker,r.support,r.remark].map(q).join(',')));return L.join('\n');}
+  const L=[head.join(',')];rows.forEach(r=>L.push([r.project,r.wtg,r.dev,r.pri==null?'':r.pri,r.owner_land,r.rating||'',...r.cells.map(c=>c.status),r.targetHOTO,r.actualHOTO,r.blocker,r.support,r.remark].map(q).join(',')));return L.join('\n');}
 function dl(n,t,ty){const b=new Blob([t],{type:ty||'text/plain'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 function parseCSV(txt){const o=[];let row=[],f='',i=0,q=false;txt=txt.replace(/\r\n?/g,'\n');while(i<txt.length){const c=txt[i];if(q){if(c=='"'){if(txt[i+1]=='"'){f+='"';i++;}else q=false;}else f+=c;}else{if(c=='"')q=true;else if(c==',')row.push(f),f='';else if(c=='\n')row.push(f),o.push(row),row=[],f='';else f+=c;}i++;}if(f!==''||row.length){row.push(f);o.push(row);}return o;}
 function loadCSV(txt){const t=parseCSV(txt).filter(r=>r.length>1&&r.some(c=>c.trim()!==''));if(!t.length)return alert("Empty CSV.");
   const H=t[0].map(h=>h.trim()),idx=n=>H.findIndex(h=>h.toLowerCase()===n.toLowerCase());
-  const iP=idx("Project"),iW=idx("WTG ID"),iD=idx("Developer"),iPr=idx("Priority"),iL=idx("Land Owner (POR)"),iT=idx("Target HOTO Date"),iA=idx("Actual HOTO Date"),iB=idx("Key Blocker"),iS=idx("Support Owner"),iR=idx("Remark");
+  const iP=idx("Project"),iW=idx("WTG ID"),iD=idx("Developer"),iPr=idx("Priority"),iRt=idx("Turbine Rating"),iL=idx("Land Owner (POR)"),iT=idx("Target HOTO Date"),iA=idx("Actual HOTO Date"),iB=idx("Key Blocker"),iS=idx("Support Owner"),iR=idx("Remark");
   if(iW<0)return alert("No 'WTG ID' column found.");let ms=[];FULL.forEach(nm=>{const j=idx(nm);if(j>=0)ms.push(j);});if(ms.length<8){const a=iL>=0?iL+1:5,b=iT>=0?iT:H.length;ms=[];for(let j=a;j<b;j++)ms.push(j);}
-  const nr=t.slice(1).map((r,k)=>({project:(iP>=0?r[iP]:"Project")||"Project",wtg:r[iW]||("Loc "+(k+1)),dev:(iD>=0?r[iD]:"")||"—",pri:(iPr>=0&&r[iPr]&&!isNaN(+r[iPr]))?+r[iPr]:null,owner_land:iL>=0?r[iL]:"",cells:ms.map(j=>{const v=(r[j]||"").trim();return mkCell(CLS[v]?v:(v||"Pending"));}),targetHOTO:iT>=0?r[iT]:"",actualHOTO:iA>=0?r[iA]:"",blocker:iB>=0?r[iB]:"",support:iS>=0?r[iS]:"",remark:iR>=0?r[iR]:"",_i:0}));
+  const nr=t.slice(1).map((r,k)=>({project:(iP>=0?r[iP]:"Project")||"Project",wtg:r[iW]||("Loc "+(k+1)),dev:(iD>=0?r[iD]:"")||"—",pri:(iPr>=0&&r[iPr]&&!isNaN(+r[iPr]))?+r[iPr]:null,owner_land:iL>=0?r[iL]:"",rating:iRt>=0?r[iRt]:"",cells:ms.map(j=>{const v=(r[j]||"").trim();return mkCell(CLS[v]?v:(v||"Pending"));}),targetHOTO:iT>=0?r[iT]:"",actualHOTO:iA>=0?r[iA]:"",blocker:iB>=0?r[iB]:"",support:iS>=0?r[iS]:"",remark:iR>=0?r[iR]:"",_i:0}));
   rows=[...rows.filter(r=>!nr.some(x=>x.project===r.project)),...nr].map((r,i)=>({...r,_i:i}));
   projects=[...new Set(rows.map(r=>r.project))];if(nr.length)state.project=nr[0].project;resetF();persist();boot();}
 function loadJSON(txt){try{const s=JSON.parse(txt);if(!s.rows)throw 0;rows=s.rows.map((r,i)=>({...r,_i:i,cells:r.cells.map(c=>({status:c.status,due:c.due||'',critical:!!c.critical,comments:c.comments||[]}))}));projects=s.projects&&s.projects.length?s.projects:[...new Set(rows.map(r=>r.project))];state.project=projects[0];resetF();persist();boot();}catch(e){alert("Couldn't read that JSON backup.");}}
@@ -484,13 +544,14 @@ $('#devsel').onchange=e=>{state.dev=e.target.value==="All developers"?"All":e.ta
 $('#fOver').onclick=()=>{state.fOver=!state.fOver;if(state.fOver)state.fCrit=false;renderSidebar();state.view==='board'?renderBoard():renderCards();};
 $('#fCrit').onclick=()=>{state.fCrit=!state.fCrit;if(state.fCrit)state.fOver=false;renderSidebar();state.view==='board'?renderBoard():renderCards();};
 $('#dclose').onclick=closeD;$('#scrim').onclick=closeD;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD();});
+(function(){const S=document.getElementById('la_save');if(S)S.onclick=addLocation;const C=document.getElementById('la_cancel');if(C)C.onclick=closeAddLoc;const X=document.getElementById('la_x');if(X)X.onclick=closeAddLoc;const SC=document.getElementById('lscrim');if(SC)SC.onclick=closeAddLoc;const W=document.getElementById('la_wtg');if(W)W.onkeydown=e=>{if(e.key==='Enter')addLocation();};document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAddLoc();});})();
 $('#expCsv').onclick=()=>dl('HOTO_'+state.project.replace(/\s+/g,'_')+'.csv',toCSV(),'text/csv');
 $('#expJson').onclick=()=>dl('HOTO_backup_'+todayStr()+'.json',JSON.stringify({projects,rows}),'application/json');
 $('#imp').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>f.name.toLowerCase().endsWith('.json')?loadJSON(rd.result):loadCSV(rd.result);rd.readAsText(f);e.target.value='';};
 
 /* ===== Supabase (anon, open policies) ===== */
 function toData(r){return {dev:r.dev,pri:r.pri,owner_land:r.owner_land,targetHOTO:r.targetHOTO,actualHOTO:r.actualHOTO,blocker:r.blocker,support:r.support,remark:r.remark,cells:r.cells};}
-function fromRow(d,project,wtg,i){const x=d||{};return {project,wtg,dev:x.dev||'—',pri:(x.pri===undefined?null:x.pri),owner_land:x.owner_land||'',targetHOTO:x.targetHOTO||'',actualHOTO:x.actualHOTO||'',blocker:x.blocker||'',support:x.support||'',remark:x.remark||'',_i:i,cells:(x.cells||[]).map(c=>({status:c.status,due:c.due||'',critical:!!c.critical,comments:c.comments||[]}))};}
+function fromRow(d,project,wtg,i){const x=d||{};return {project,wtg,dev:x.dev||'—',pri:(x.pri===undefined?null:x.pri),owner_land:x.owner_land||'',rating:x.rating||'',targetHOTO:x.targetHOTO||'',actualHOTO:x.actualHOTO||'',blocker:x.blocker||'',support:x.support||'',remark:x.remark||'',_i:i,cells:(x.cells||[]).map(c=>({status:c.status,due:c.due||'',critical:!!c.critical,comments:c.comments||[]}))};}
 async function saveLoc(r){if(!sb||!r)return;try{const {error}=await sb.from('hoto_locations').upsert({project:r.project,wtg:r.wtg,data:toData(r),updated_at:new Date().toISOString()},{onConflict:'project,wtg'});if(error)console.error('save',error);}catch(e){console.error('save',e);}}
 async function pushAll(){if(!sb)return;try{const payload=rows.map(r=>({project:r.project,wtg:r.wtg,data:toData(r),updated_at:new Date().toISOString()}));const {error}=await sb.from('hoto_locations').upsert(payload,{onConflict:'project,wtg'});if(error)console.error('pushAll',error);}catch(e){console.error('pushAll',e);}}
 async function cloudLoad(){try{let q=sb.from('hoto_locations').select('project,wtg,data');if(PROJ)q=q.eq('project',PROJ);const {data,error}=await q;if(error){console.error('load',error);return null;}return data;}catch(e){console.error('load',e);return null;}}
@@ -499,6 +560,6 @@ let _rt;function refreshFromCloud(){clearTimeout(_rt);_rt=setTimeout(async()=>{c
 function subscribe(){try{let ch=sb.channel('hoto').on('postgres_changes',{event:'*',schema:'public',table:'hoto_locations'},refreshFromCloud);ch.subscribe();}catch(e){console.error('realtime',e);}}
 async function bootCloud(){try{const d=await cloudLoad();if(d&&d.length){applyCloud(d);}else{rows=(PROJ?[]:freshRows());projects=[...new Set(rows.map(r=>r.project))];forceProj();if(!PROJ){rows=freshRows();projects=[...new Set(rows.map(r=>r.project))];state.project=projects[0];await pushAll();}}}catch(e){console.error('bootCloud',e);}if(!rows){rows=[];}if(!projects.length&&!PROJ){rows=freshRows();projects=[...new Set(rows.map(r=>r.project))];state.project=projects[0];}forceProj();boot();subscribe();}
 function forceProj(){if(PROJ){if(!projects.includes(PROJ))projects=[PROJ,...projects];state.project=PROJ;}}
-function boot(){if(EMBED)applyEmbed();renderSidebar();renderHeadbar();setView(state.view);}
+function boot(){if(EMBED)applyEmbed();renderSidebar();renderHeadbar();setView(state.view);addHeaderBtn();}
 if(sb){bootCloud();}else{init();forceProj&&forceProj();boot();}
 </script></body></html>
