@@ -28,14 +28,36 @@ export default function ProjectPage() {
 
   const load = async () => {
     const { data: proj } = await supabase.from('projects').select('*').eq('id', id).single();
-    const { data: tks } = await supabase.from('tasks').select('*').eq('project_id', id).order('created_at', { ascending: false });
     setProject(proj);
+    // Wind projects don't use the tasks table — skip that query
+    if (proj && proj.layout === 'wind') { setLoading(false); return; }
+    const { data: tks } = await supabase.from('tasks').select('*').eq('project_id', id).order('created_at', { ascending: false });
     setTasks(tks || []);
     setLoading(false);
   };
 
   useEffect(() => { setLoading(true); load(); }, [id]);
 
+  if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><div className="spinner" /></div>;
+  if (!project) return <div style={{ padding: 40, color: 'var(--text2)' }}>Project not found.</div>;
+
+  // ---- WIND LAYOUT: render the HOTO milestone tracker for this project ----
+  if (project.layout === 'wind') {
+    const cfg =
+      `&supabaseUrl=${encodeURIComponent(process.env.REACT_APP_SUPABASE_URL || '')}` +
+      `&supabaseKey=${encodeURIComponent(process.env.REACT_APP_SUPABASE_ANON_KEY || '')}`;
+    const src = `/hoto-dashboard.html?embed=1&project=${encodeURIComponent(project.name)}`
+      + (can.edit ? '' : '&readonly=1') + cfg;
+    return (
+      <iframe
+        title={project.name}
+        src={src}
+        style={{ display: 'block', width: '100%', height: '100vh', border: 0 }}
+      />
+    );
+  }
+
+  // ---- NORMAL LAYOUT: existing task view (unchanged) ----
   const deleteTask = async (taskId) => {
     if (!window.confirm('Delete this task?')) return;
     await supabase.from('tasks').delete().eq('id', taskId);
@@ -56,9 +78,6 @@ export default function ProjectPage() {
     inprogress: tasks.filter(t => t.status === 'In Progress').length,
     overdue: tasks.filter(isOverdue).length,
   };
-
-  if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><div className="spinner" /></div>;
-  if (!project) return <div style={{ padding: 40, color: 'var(--text2)' }}>Project not found.</div>;
 
   return (
     <div className="project-page">
@@ -100,14 +119,7 @@ export default function ProjectPage() {
         <div className="task-table-wrap">
           <table className="task-table">
             <thead>
-              <tr>
-                <th>Task</th>
-                <th>Owner</th>
-                <th>Priority</th>
-                <th>Target Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
+              <tr><th>Task</th><th>Owner</th><th>Priority</th><th>Target Date</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.map(t => (
@@ -132,12 +144,8 @@ export default function ProjectPage() {
                   <td>
                     <div className="action-row">
                       <button className="action-btn" title="View History" onClick={() => setDetailTask(t)}>💬</button>
-                      {can.edit && (
-                        <button className="action-btn" title="Edit" onClick={() => setTaskModal(t)}>✏️</button>
-                      )}
-                      {can.admin && (
-                        <button className="action-btn danger" title="Delete" onClick={() => deleteTask(t.id)}>🗑</button>
-                      )}
+                      {can.edit && (<button className="action-btn" title="Edit" onClick={() => setTaskModal(t)}>✏️</button>)}
+                      {can.admin && (<button className="action-btn danger" title="Delete" onClick={() => deleteTask(t.id)}>🗑</button>)}
                     </div>
                   </td>
                 </tr>
@@ -148,20 +156,13 @@ export default function ProjectPage() {
       )}
 
       {taskModal && can.edit && (
-        <TaskModal
-          projectId={id}
-          task={taskModal === 'new' ? null : taskModal}
+        <TaskModal projectId={id} task={taskModal === 'new' ? null : taskModal}
           onClose={() => setTaskModal(null)}
-          onSave={() => { load(); showToast(taskModal === 'new' ? 'Task created!' : 'Task updated!'); setTaskModal(null); }}
-        />
+          onSave={() => { load(); showToast(taskModal === 'new' ? 'Task created!' : 'Task updated!'); setTaskModal(null); }} />
       )}
-
       {detailTask && (
-        <TaskDetailModal
-          task={detailTask}
-          onClose={() => setDetailTask(null)}
-          onUpdate={() => { load(); setDetailTask(null); }}
-        />
+        <TaskDetailModal task={detailTask} onClose={() => setDetailTask(null)}
+          onUpdate={() => { load(); setDetailTask(null); }} />
       )}
     </div>
   );
